@@ -916,28 +916,31 @@ namespace Esska.AV3Obfuscator.Editor {
         /// <param name="clip"></param>
         /// <returns></returns>
         /// <exception cref="System.Exception"></exception>
-        private AnimationClip ObfuscateAnimationClip(AnimationClip clip) {
+        private AnimationClip ObfuscateAnimationClip(AnimationClip clip)
+        {
             string path = AssetDatabase.GetAssetPath(clip);
 
             if (path.Contains("ProxyAnim/proxy_"))
                 return clip;
 
-            string newPath = GetObfuscatedPath<AnimationClip>(); ;
+            string newPath = GetObfuscatedPath<AnimationClip>();
 
-            if (obfuscatedAnimationClips.ContainsKey(clip)) {
+            if (obfuscatedAnimationClips.ContainsKey(clip))
+            {
                 return obfuscatedAnimationClips[clip];
             }
-            else if (AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(clip), newPath)) {
+            else if (AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(clip), newPath))
+            {
                 AnimationClip obfuscatedClip = AssetDatabase.LoadAssetAtPath<AnimationClip>(newPath);
 
                 obfuscatedAnimationClips.Add(clip, obfuscatedClip);
 
                 EditorCurveBinding[] bindings = AnimationUtility.GetCurveBindings(obfuscatedClip);
 
-                for (int i = 0; i < bindings.Length; i++) {
-
-                    if (!string.IsNullOrEmpty(bindings[i].path)) {
-
+                for (int i = 0; i < bindings.Length; i++)
+                {
+                    if (!string.IsNullOrEmpty(bindings[i].path))
+                    {
                         if (config.preserveMMD && TRANSFORM_NAMES_MMD.Contains(bindings[i].path))
                             continue;
 
@@ -945,30 +948,55 @@ namespace Esska.AV3Obfuscator.Editor {
                         AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], null);
                         bindings[i].path = ObfuscateTransformPath(bindings[i].path);
 
-                        if (config.obfuscateMeshes && config.obfuscateBlendShapes && bindings[i].propertyName.StartsWith("blendShape.")) {
+                        if (config.obfuscateMeshes && config.obfuscateBlendShapes && bindings[i].propertyName.StartsWith("blendShape."))
+                        {
                             string blendShapeName = bindings[i].propertyName.Replace("blendShape.", "");
                             bindings[i].propertyName = "blendShape." + ObfuscateBlendShapeName(blendShapeName);
                         }
 
                         AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], curve);
                     }
-                    else if (!string.IsNullOrEmpty(bindings[i].propertyName) && obfuscatedParameters.ContainsKey(bindings[i].propertyName)) {
-                        AnimationCurve curve = AnimationUtility.GetEditorCurve(obfuscatedClip, bindings[i]);
-                        AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], null);
-                        bindings[i].propertyName = obfuscatedParameters[bindings[i].propertyName];
-                        AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], curve);
-                    }
-                    else {
-                        continue;
+                    else if (!string.IsNullOrEmpty(bindings[i].propertyName))
+                    {
+                        // Check if the property is an animated animator parameter (AAP)
+                        if (bindings[i].type == typeof(Animator))
+                        {
+                            // Obfuscate the AAP name
+                            string obfuscatedParameterName = ObfuscateParameterName(bindings[i].propertyName);
+
+                            // Get the original curve
+                            AnimationCurve curve = AnimationUtility.GetEditorCurve(obfuscatedClip, bindings[i]);
+
+                            // Remove the original AAP curve
+                            AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], null);
+
+                            // Create a new binding with the obfuscated AAP name
+                            EditorCurveBinding newBinding = new EditorCurveBinding
+                            {
+                                path = bindings[i].path,
+                                type = bindings[i].type,
+                                propertyName = obfuscatedParameterName
+                            };
+
+                            // Set the original curve to the new binding
+                            AnimationUtility.SetEditorCurve(obfuscatedClip, newBinding, curve);
+                        }
+                        else
+                        {
+                            AnimationCurve curve = AnimationUtility.GetEditorCurve(obfuscatedClip, bindings[i]);
+                            AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], null);
+                            bindings[i].propertyName = ObfuscateParameterName(bindings[i].propertyName);
+                            AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], curve);
+                        }
                     }
                 }
 
                 bindings = AnimationUtility.GetObjectReferenceCurveBindings(obfuscatedClip);
 
-                for (int i = 0; i < bindings.Length; i++) {
-
-                    if (!string.IsNullOrEmpty(bindings[i].path)) {
-
+                for (int i = 0; i < bindings.Length; i++)
+                {
+                    if (!string.IsNullOrEmpty(bindings[i].path))
+                    {
                         if (config.preserveMMD && TRANSFORM_NAMES_MMD.Contains(bindings[i].path))
                             continue;
 
@@ -976,10 +1004,10 @@ namespace Esska.AV3Obfuscator.Editor {
                         AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], null);
                         bindings[i].path = ObfuscateTransformPath(bindings[i].path);
 
-                        if (config.obfuscateMaterials && bindings[i].isPPtrCurve) {
-
-                            for (int r = 0; r < references.Length; r++) {
-
+                        if (config.obfuscateMaterials && bindings[i].isPPtrCurve)
+                        {
+                            for (int r = 0; r < references.Length; r++)
+                            {
                                 if (references[r].value is Material)
                                     references[r].value = ObfuscateMaterial((Material)references[r].value);
                             }
@@ -987,7 +1015,8 @@ namespace Esska.AV3Obfuscator.Editor {
 
                         AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], references);
                     }
-                    else {
+                    else
+                    {
                         continue;
                     }
                 }
